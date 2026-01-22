@@ -1,0 +1,323 @@
+/* Container Styles */
+.container {
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: background-color 0.3s ease;
+}
+
+.light {
+  background-color: #f5f7fa;
+  color: #1a202c;
+}
+
+.dark {
+  background-color: #1a202c;
+  color: #f5f7fa;
+}
+
+/* Auth Styles */
+.authContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.authCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.authCardLight {
+  background-color: #ffffff;
+}
+
+.authCardDark {
+  background-color: #2d3748;
+}
+
+/* Input Styles */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 2px solid;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.inputLight {
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+  color: #1a202c;
+}
+
+.inputDark {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f5f7fa;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Button Styles */
+.button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.buttonPrimary {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.button:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Navbar Styles */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbarLight {
+  background-color: #ffffff;
+}
+
+.navbarDark {
+  background-color: #2d3748;
+}
+
+/* Dashboard Styles */
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Platform Grid */
+.platformGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.platformCard {
+  padding: 30px 20px;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.platformCardLight {
+  background-color: #ffffff;
+}
+
+.platformCardDark {
+  background-color: #2d3748;
+}
+
+/* Scan Section */
+.scanSection {
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.scanSectionLight {
+  background-color: #ffffff;
+}
+
+.scanSectionDark {
+  background-color: #2d3748;
+}
+
+/* Result Card */
+.resultCard {
+  padding: 30px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.resultCardLight {
+  background-color: #ffffff;
+}
+
+.resultCardDark {
+  background-color: #2d3748;
+}
+
+/* Progress Bar */
+.progressBar {
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progressBarLight {
+  background-color: #e2e8f0;
+}
+
+.progressBarDark {
+  background-color: #4b5563;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 6px;
+}
+
+/* History Card */
+.historyCard {
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  transition: all 0.3s ease;
+}
+
+.historyCardLight {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.historyCardDark {
+  background-color: #2d3748;
+  border: 1px solid #4b5563;
+}
+
+/* Profile Header */
+.profileHeader {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.profileHeaderLight {
+  background-color: #f8fafc;
+}
+
+.profileHeaderDark {
+  background-color: #1e293b;
+}
+
+.profileImage {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #3b82f6;
+}
+
+/* Alert Styles */
+.alert {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+gap: 12px;
+}
+.alertError {
+background-color: #fee2e2;
+color: #991b1b;
+border: 1px solid #fecaca;
+}
+.alertErrorDark {
+background-color: #7f1d1d;
+color: #fecaca;
+border: 1px solid #991b1b;
+}
+/* Status Indicator */
+.statusIndicator {
+width: 10px;
+height: 10px;
+border-radius: 50%;
+}
+.statusConnected {
+background-color: #10b981;
+}
+.statusDisconnected {
+background-color: #ef4444;
+}
+.statusChecking {
+background-color: #f59e0b;
+animation: pulse 2s infinite;
+}
+/* Utility Classes */
+.flexCenter {
+display: flex;
+align-items: center;
+justify-content: center;
+}
+.flexBetween {
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+.textCenter {
+text-align: center;
+}
+/* Animations */
+@keyframes pulse {
+0%, 100% {
+opacity: 1;
+}
+50% {
+opacity: 0.5;
+}
+}
+/* Responsive Design */
+@media (max-width: 768px) {
+.navbar {
+padding: 16px 20px;
+}
+.dashboard {
+padding: 20px 16px;
+}
+.platformGrid {
+grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+gap: 12px;
+}
+.scanSection, .resultCard {
+padding: 20px;
+}
+.profileHeader {
+flex-direction: column;
+text-align: center;
+}
+}
