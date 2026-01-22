@@ -3,20 +3,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import os   # 👈 ADD THIS
 
 app = FastAPI()
 
 # Allow requests from your frontend (Next.js)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # ✅ your frontend URL
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load your trained ML model
-model = joblib.load("model/random_forest_fake_account_detector.joblib")
+# ✅ FIXED MODEL LOADING
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model", "model_compressed.joblib")
+model = joblib.load(MODEL_PATH)
 
 # Define input structure
 class AccountData(BaseModel):
