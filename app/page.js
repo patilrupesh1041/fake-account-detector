@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Instagram, Facebook, Twitter, Linkedin, Youtube, Music, LogOut, Sun, Moon, AlertCircle, CheckCircle, Loader, TrendingUp, Users, Calendar, Activity, Shield } from 'lucide-react';
+import { Instagram, Facebook, Twitter, Linkedin, Youtube, Music, LogOut, Sun, Moon, AlertCircle, CheckCircle, Loader, TrendingUp, Users, Calendar, Activity, Shield, Image as ImageIcon, Hash, UserCheck } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import styles from './styles/Dashboard.module.css';
 
@@ -10,12 +10,9 @@ const platforms = [
   { name: 'Instagram', icon: Instagram, color: '#E4405F' },
   { name: 'Facebook', icon: Facebook, color: '#1877F2' },
   { name: 'Twitter', icon: Twitter, color: '#1DA1F2' },
-  { name: 'LinkedIn', icon: Linkedin, color: '#0A66C2' },
-  { name: 'TikTok', icon: Music, color: '#000000' },
-  { name: 'YouTube', icon: Youtube, color: '#FF0000' },
 ];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
-const API_BASE_URL = 'http://localhost:8000';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,7 +26,6 @@ export default function App() {
   useEffect(() => {
     setMounted(true);
     
-    // Safely access localStorage only on client
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem('user');
       const savedTheme = localStorage.getItem('theme');
@@ -88,7 +84,6 @@ export default function App() {
     }
   };
 
-  // Prevent hydration mismatch - show loading or nothing during SSR
   if (!mounted) {
     return (
       <div style={{ 
@@ -115,7 +110,6 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             className={`${styles.authCard} ${isDark ? styles.authCardDark : styles.authCardLight}`}
           >
-            {/* Rest of auth UI remains the same */}
             <div className={styles.flexBetween} style={{ marginBottom: '30px' }}>
               <h1 style={{ fontSize: '28px', fontWeight: '700', margin: 0 }}>
                 {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
@@ -184,387 +178,589 @@ export default function App() {
                 </motion.div>
               )}
 
-              <button onClick={handleAuth} className={`${styles.button} ${styles.buttonPrimary}`}>
-                {authMode === 'login' ? 'Login' : 'Sign Up'}
-              </button>
-            </div>
-
-            <p className={styles.textCenter} style={{ marginTop: '20px', fontSize: '14px' }}>
-              {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-              <span
-                onClick={() => {
-                  setAuthMode(authMode === 'login' ? 'signup' : 'login');
-                  setError('');
-                  setSuccess('');
-                }}
-                style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: '600' }}
+              <button
+                onClick={handleAuth}
+                className={`${styles.button} ${styles.buttonPrimary}`}
               >
-                {authMode === 'login' ? 'Sign Up' : 'Login'}
-              </span>
-            </p>
+                {authMode === 'login' ? 'Sign In' : 'Sign Up'}
+              </button>
+
+              <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px' }}>
+                {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                <span
+                  onClick={() => {
+                    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                    setError('');
+                    setSuccess('');
+                  }}
+                  style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: '600' }}
+                >
+                  {authMode === 'login' ? 'Sign Up' : 'Sign In'}
+                </span>
+              </p>
+            </div>
           </motion.div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className={`${styles.container} ${isDark ? styles.dark : styles.light}`}>
-      <Dashboard user={user} isDark={isDark} onLogout={handleLogout} onToggleTheme={toggleTheme} />
-    </div>
-  );
+  return <Dashboard user={user} isDark={isDark} toggleTheme={toggleTheme} handleLogout={handleLogout} />;
 }
 
-function Dashboard({ user, isDark, onLogout, onToggleTheme }) {
+function Dashboard({ user, isDark, toggleTheme, handleLogout }) {
   const [selectedPlatform, setSelectedPlatform] = useState(null);
-  const [profileUrl, setProfileUrl] = useState('');
-  const [scanning, setScanning] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [error, setError] = useState('');
-  const [apiStatus, setApiStatus] = useState('checking');
+  const [chartData, setChartData] = useState([]);
+
+  // Profile data form state
+  const [profileData, setProfileData] = useState({
+    username: '',
+    followers: '',
+    following: '',
+    posts: '',
+    profilePicture: 'yes',
+    isVerified: 'no',
+    accountAge: '',
+    bio: '',
+    bioLength: '',
+    postsWithLinks: '',
+    avgLikesPerPost: '',
+    avgCommentsPerPost: '',
+    followersToFollowingRatio: '',
+    postFrequency: '',
+    hashtagsPerPost: '',
+    externalLinks: '',
+  });
 
   useEffect(() => {
-    const savedHistory = localStorage.getItem('scanHistory');
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-    checkApiStatus();
+    if (typeof window !== 'undefined') {
+      const savedHistory = localStorage.getItem('scanHistory');
+      if (savedHistory) {
+        try {
+          const parsedHistory = JSON.parse(savedHistory);
+          setHistory(parsedHistory);
+          setChartData(parsedHistory.slice(-10).map((item, idx) => ({
+            name: `Scan ${idx + 1}`,
+            accuracy: item.confidence,
+          })));
+        } catch (e) {
+          console.error('Error parsing history:', e);
+        }
+      }
+    }
   }, []);
 
-  const checkApiStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      if (response.ok) {
-        const data = await response.json();
-        setApiStatus(data.status === 'healthy' ? 'connected' : 'disconnected');
-      } else {
-        setApiStatus('disconnected');
-      }
-    } catch {
-      setApiStatus('disconnected');
-    }
+  const handleInputChange = (field, value) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const calculateDerivedMetrics = () => {
+    const followers = parseFloat(profileData.followers) || 0;
+    const following = parseFloat(profileData.following) || 0;
+    const posts = parseFloat(profileData.posts) || 0;
+
+    // Calculate follower to following ratio
+    const ratio = following > 0 ? (followers / following).toFixed(2) : 0;
+    
+    return {
+      followersToFollowingRatio: ratio,
+      bioLength: profileData.bio.length,
+    };
   };
 
   const handleScan = async () => {
-    if (!profileUrl.trim()) {
-      setError('Please enter a profile URL or username');
+    // Validate required fields
+    if (!profileData.username || !profileData.followers || !profileData.following || !profileData.posts) {
+      alert('Please fill in at least Username, Followers, Following, and Posts');
       return;
     }
 
-    setScanning(true);
+    setLoading(true);
     setResult(null);
-    setError('');
 
     try {
+      const derived = calculateDerivedMetrics();
+      
+      // Prepare data for API
+      const scanData = {
+        username: profileData.username,
+        followers: parseFloat(profileData.followers) || 0,
+        following: parseFloat(profileData.following) || 0,
+        posts: parseFloat(profileData.posts) || 0,
+        profilePicture: profileData.profilePicture === 'yes' ? 1 : 0,
+        isVerified: profileData.isVerified === 'yes' ? 1 : 0,
+        accountAge: parseFloat(profileData.accountAge) || 0,
+        bio: profileData.bio,
+        bioLength: derived.bioLength,
+        postsWithLinks: parseFloat(profileData.postsWithLinks) || 0,
+        avgLikesPerPost: parseFloat(profileData.avgLikesPerPost) || 0,
+        avgCommentsPerPost: parseFloat(profileData.avgCommentsPerPost) || 0,
+        followersToFollowingRatio: parseFloat(derived.followersToFollowingRatio),
+        postFrequency: parseFloat(profileData.postFrequency) || 0,
+        hashtagsPerPost: parseFloat(profileData.hashtagsPerPost) || 0,
+        externalLinks: parseFloat(profileData.externalLinks) || 0,
+        platform: selectedPlatform
+      };
+
+      console.log('Sending scan request to:', `${API_BASE_URL}/api/scan`);
+      console.log('Scan data:', scanData);
+
       const response = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          platform: selectedPlatform.name,
-          profileUrl: profileUrl.trim(),
-        }),
+        body: JSON.stringify(scanData),
       });
 
-      const data = await response.json();
+      console.log('Response status:', response.status);
 
-      if (response.ok && data.success) {
-        const newResult = {
-          platform: selectedPlatform.name,
-          url: profileUrl.trim(),
-          isFake: data.isFake,
-          confidence: data.confidence,
-          accountStatus: data.accountStatus,
-          predictedClass: data.predictedClass,
-          details: data.details,
-          profileData: data.profileData,
-          timestamp: new Date().toISOString(),
-        };
-
-        setResult(newResult);
-        setApiStatus('connected');
-
-        const updatedHistory = [newResult, ...history].slice(0, 10);
-        setHistory(updatedHistory);
-        localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
-      } else {
-        setError(data.error || data.detail || 'Failed to scan profile. Please check the username/URL.');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to scan profile: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      const scanResult = {
+        ...data,
+        platform: selectedPlatform,
+        url: profileData.username,
+        timestamp: new Date().toISOString(),
+        profileData: {
+          username: profileData.username,
+          followers: profileData.followers,
+          following: profileData.following,
+          posts_count: profileData.posts,
+          is_verified: profileData.isVerified === 'yes',
+          biography: profileData.bio,
+        }
+      };
+
+      setResult(scanResult);
+
+      // Update history
+      const updatedHistory = [scanResult, ...history];
+      setHistory(updatedHistory);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('scanHistory', JSON.stringify(updatedHistory));
+      }
+
+      setChartData(updatedHistory.slice(-10).map((item, idx) => ({
+        name: `Scan ${idx + 1}`,
+        accuracy: item.confidence,
+      })));
+
     } catch (err) {
-      console.error('Error calling API:', err);
-      setError(
-        'Cannot connect to backend server. Please ensure:\n' +
-        '1. Backend is running: python main.py\n' +
-        '2. Server is at http://localhost:8000\n' +
-        '3. Check browser console for details'
-      );
-      setApiStatus('disconnected');
+      console.error('Error scanning profile:', err);
+      alert(`Failed to scan profile: ${err.message}\n\nMake sure the backend server is running at ${API_BASE_URL}`);
     } finally {
-      setScanning(false);
+      setLoading(false);
     }
   };
 
-  const chartData = history.slice(0, 7).reverse().map((item, idx) => ({
-    name: `Scan ${idx + 1}`,
-    accuracy: item.confidence,
-  }));
+  const resetForm = () => {
+    setProfileData({
+      username: '',
+      followers: '',
+      following: '',
+      posts: '',
+      profilePicture: 'yes',
+      isVerified: 'no',
+      accountAge: '',
+      bio: '',
+      bioLength: '',
+      postsWithLinks: '',
+      avgLikesPerPost: '',
+      avgCommentsPerPost: '',
+      followersToFollowingRatio: '',
+      postFrequency: '',
+      hashtagsPerPost: '',
+      externalLinks: '',
+    });
+    setResult(null);
+  };
 
   return (
     <>
-      <nav className={`${styles.navbar} ${isDark ? styles.navbarDark : styles.navbarLight}`}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0 }}>
-            Fake Social Media Account Detection
-          </h1>
-          <div 
-            className={`${styles.statusIndicator} ${
-              apiStatus === 'connected' ? styles.statusConnected : 
-              apiStatus === 'disconnected' ? styles.statusDisconnected : 
-              styles.statusChecking
-            }`}
-            title={apiStatus === 'connected' ? 'Backend Connected' : 'Backend Disconnected'}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button
-            onClick={onToggleTheme}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              color: isDark ? '#f5f7fa' : '#1a202c',
-            }}
-          >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button
-            onClick={onLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 20px',
-              backgroundColor: '#ef4444',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      </nav>
-
-      <div className={styles.dashboard}>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {apiStatus === 'disconnected' && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`${styles.alert} ${isDark ? styles.alertErrorDark : styles.alertError}`}
-            >
-              <AlertCircle size={20} />
-              <div>
-                <strong>Backend Not Connected</strong>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
-                  Run: <code>cd backend && python main.py</code> or <code>uvicorn main:app --reload --port 8000</code>
-                </p>
-              </div>
-            </motion.div>
-          )}
-
-          <h2 style={{ fontSize: '20px', marginBottom: '20px' }}>Select Platform</h2>
-          <div className={styles.platformGrid}>
-            {platforms.map((platform) => (
-              <motion.div
-                key={platform.name}
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  setSelectedPlatform(platform);
-                  setError('');
-                  setResult(null);
-                }}
-                className={`${styles.platformCard} ${isDark ? styles.platformCardDark : styles.platformCardLight}`}
+      <div className={`${styles.container} ${isDark ? styles.dark : styles.light}`}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}
+        >
+          {/* Header */}
+          <div className={styles.flexBetween} style={{ marginBottom: '40px' }}>
+            <div>
+              <h1 style={{ fontSize: '32px', fontWeight: '700', margin: 0 }}>
+                Fake Account Detector
+              </h1>
+              <p style={{ marginTop: '8px', opacity: 0.7 }}>Welcome, {user.name}!</p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                onClick={toggleTheme}
                 style={{
-                  borderColor: selectedPlatform?.name === platform.name ? platform.color : 'transparent',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: isDark ? '#f5f7fa' : '#1a202c',
                 }}
               >
-                <platform.icon size={40} color={platform.color} style={{ margin: '0 auto 12px' }} />
-                <p style={{ fontWeight: '600', margin: 0 }}>{platform.name}</p>
-              </motion.div>
-            ))}
+                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              <button
+                onClick={handleLogout}
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
           </div>
 
-          <AnimatePresence>
-            {selectedPlatform && (
+          {/* Platform Selection */}
+          <AnimatePresence mode="wait">
+            {!selectedPlatform && (
               <motion.div
+                key="platform-selection"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className={`${styles.scanSection} ${isDark ? styles.scanSectionDark : styles.scanSectionLight}`}
               >
-                <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>
-                  Scan {selectedPlatform.name} Profile
-                </h3>
-                <p style={{ fontSize: '14px', opacity: 0.7, marginBottom: '16px' }}>
-                  Enter username (e.g., @username) or full profile URL
-                </p>
-                
-                {/* Sample usernames hint */}
-                <div style={{ 
-                  padding: '12px', 
-                  borderRadius: '8px', 
-                  backgroundColor: isDark ? '#374151' : '#f3f4f6',
-                  marginBottom: '16px',
-                  fontSize: '13px'
-                }}>
-                  <strong>💡 Test with sample usernames:</strong>
-                  <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {selectedPlatform.name === 'Instagram' && (
-                      <>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>instagram</code>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>fake_account_123</code>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>real_person</code>
-                      </>
-                    )}
-                    {selectedPlatform.name === 'Twitter' && (
-                      <>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>twitter</code>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>elonmusk</code>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>fake_bot_2023</code>
-                      </>
-                    )}
-                    {selectedPlatform.name === 'Facebook' && (
-                      <>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>facebook</code>
-                        <code style={{ padding: '2px 6px', backgroundColor: isDark ? '#1f2937' : '#e5e7eb', borderRadius: '4px' }}>fake_fb_account</code>
-                      </>
-                    )}
+                <h2 style={{ fontSize: '24px', marginBottom: '24px' }}>Select a Platform</h2>
+                <div className={styles.platformGrid}>
+                  {platforms.map((platform, idx) => (
+                    <motion.button
+                      key={platform.name}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.1 }}
+                      onClick={() => setSelectedPlatform(platform.name)}
+                      className={`${styles.platformCard} ${isDark ? styles.platformCardDark : styles.platformCardLight}`}
+                      whileHover={{ scale: 1.05, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <platform.icon size={48} color={platform.color} />
+                      <h3 style={{ marginTop: '16px', fontSize: '18px', fontWeight: '600' }}>
+                        {platform.name}
+                      </h3>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Manual Input Form */}
+            {selectedPlatform && (
+              <motion.div
+                key="input-form"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button
+                    onClick={() => {
+                      setSelectedPlatform(null);
+                      resetForm();
+                    }}
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                  >
+                    ← Back
+                  </button>
+                  <h2 style={{ fontSize: '24px', margin: 0 }}>Enter {selectedPlatform} Profile Details</h2>
+                </div>
+
+                <div className={`${styles.scanSection} ${isDark ? styles.scanSectionDark : styles.scanSectionLight}`}>
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', marginBottom: '16px', fontWeight: '600' }}>
+                      Basic Information
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                      <InputField
+                        label="Username *"
+                        icon={UserCheck}
+                        value={profileData.username}
+                        onChange={(e) => handleInputChange('username', e.target.value)}
+                        placeholder="e.g., @johndoe"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Followers *"
+                        icon={Users}
+                        type="number"
+                        value={profileData.followers}
+                        onChange={(e) => handleInputChange('followers', e.target.value)}
+                        placeholder="e.g., 1500"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Following *"
+                        icon={Users}
+                        type="number"
+                        value={profileData.following}
+                        onChange={(e) => handleInputChange('following', e.target.value)}
+                        placeholder="e.g., 300"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Total Posts *"
+                        icon={Hash}
+                        type="number"
+                        value={profileData.posts}
+                        onChange={(e) => handleInputChange('posts', e.target.value)}
+                        placeholder="e.g., 50"
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', marginBottom: '16px', fontWeight: '600' }}>
+                      Account Details
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                      <SelectField
+                        label="Has Profile Picture?"
+                        icon={ImageIcon}
+                        value={profileData.profilePicture}
+                        onChange={(e) => handleInputChange('profilePicture', e.target.value)}
+                        options={[
+                          { value: 'yes', label: 'Yes' },
+                          { value: 'no', label: 'No' }
+                        ]}
+                        isDark={isDark}
+                      />
+                      <SelectField
+                        label="Is Verified?"
+                        icon={CheckCircle}
+                        value={profileData.isVerified}
+                        onChange={(e) => handleInputChange('isVerified', e.target.value)}
+                        options={[
+                          { value: 'no', label: 'No' },
+                          { value: 'yes', label: 'Yes' }
+                        ]}
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Account Age (years)"
+                        icon={Calendar}
+                        type="number"
+                        step="0.1"
+                        value={profileData.accountAge}
+                        onChange={(e) => handleInputChange('accountAge', e.target.value)}
+                        placeholder="e.g., 2.5"
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', marginBottom: '16px', fontWeight: '600' }}>
+                      Engagement Metrics
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                      <InputField
+                        label="Avg Likes Per Post"
+                        icon={Activity}
+                        type="number"
+                        value={profileData.avgLikesPerPost}
+                        onChange={(e) => handleInputChange('avgLikesPerPost', e.target.value)}
+                        placeholder="e.g., 50"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Avg Comments Per Post"
+                        icon={Activity}
+                        type="number"
+                        value={profileData.avgCommentsPerPost}
+                        onChange={(e) => handleInputChange('avgCommentsPerPost', e.target.value)}
+                        placeholder="e.g., 10"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Posts Per Week"
+                        icon={TrendingUp}
+                        type="number"
+                        step="0.1"
+                        value={profileData.postFrequency}
+                        onChange={(e) => handleInputChange('postFrequency', e.target.value)}
+                        placeholder="e.g., 3.5"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="Avg Hashtags Per Post"
+                        icon={Hash}
+                        type="number"
+                        step="0.1"
+                        value={profileData.hashtagsPerPost}
+                        onChange={(e) => handleInputChange('hashtagsPerPost', e.target.value)}
+                        placeholder="e.g., 5"
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', marginBottom: '16px', fontWeight: '600' }}>
+                      Content Analysis
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                      <InputField
+                        label="Posts with External Links"
+                        icon={Activity}
+                        type="number"
+                        value={profileData.postsWithLinks}
+                        onChange={(e) => handleInputChange('postsWithLinks', e.target.value)}
+                        placeholder="e.g., 5"
+                        isDark={isDark}
+                      />
+                      <InputField
+                        label="External Links in Bio"
+                        icon={Activity}
+                        type="number"
+                        value={profileData.externalLinks}
+                        onChange={(e) => handleInputChange('externalLinks', e.target.value)}
+                        placeholder="e.g., 2"
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '8px', 
+                      fontWeight: '600',
+                      fontSize: '14px'
+                    }}>
+                      Bio / Description
+                    </label>
+                    <textarea
+                      value={profileData.bio}
+                      onChange={(e) => handleInputChange('bio', e.target.value)}
+                      placeholder="Enter the account bio or description..."
+                      className={`${styles.input} ${isDark ? styles.inputDark : styles.inputLight}`}
+                      style={{ 
+                        minHeight: '100px', 
+                        resize: 'vertical',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <p style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>
+                      Character count: {profileData.bio.length}
+                    </p>
+                  </div>
+
+                  <div style={{ 
+                    padding: '16px', 
+                    backgroundColor: isDark ? '#374151' : '#f3f4f6',
+                    borderRadius: '8px',
+                    marginBottom: '24px'
+                  }}>
+                    <h4 style={{ fontSize: '14px', marginBottom: '12px', fontWeight: '600' }}>
+                      Calculated Metrics
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '14px' }}>
+                      <div>
+                        <span style={{ opacity: 0.7 }}>Follower:Following Ratio: </span>
+                        <strong>{calculateDerivedMetrics().followersToFollowingRatio}</strong>
+                      </div>
+                      <div>
+                        <span style={{ opacity: 0.7 }}>Bio Length: </span>
+                        <strong>{calculateDerivedMetrics().bioLength} chars</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={resetForm}
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      disabled={loading}
+                    >
+                      Reset Form
+                    </button>
+                    <button
+                      onClick={handleScan}
+                      className={`${styles.button} ${styles.buttonPrimary}`}
+                      disabled={loading || !profileData.username || !profileData.followers || !profileData.following || !profileData.posts}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader size={18} className="spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Shield size={18} />
+                          Analyze Profile
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <input
-                    type="text"
-                    placeholder={`@username or https://${selectedPlatform.name.toLowerCase()}.com/username`}
-                    value={profileUrl}
-                    onChange={(e) => {
-                      setProfileUrl(e.target.value);
-                      setError('');
-                    }}
-                    onKeyPress={(e) => e.key === 'Enter' && !scanning && profileUrl.trim() && handleScan()}
-                    className={`${styles.input} ${isDark ? styles.inputDark : styles.inputLight}`}
-                    style={{ flex: 1, marginBottom: 0 }}
-                    disabled={scanning}
-                  />
-                  <button
-                    onClick={handleScan}
-                    disabled={!profileUrl.trim() || scanning}
-                    className={`${styles.button} ${styles.buttonPrimary}`}
-                    style={{
-                      width: 'auto',
-                      padding: '12px 32px',
-                      marginTop: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    {scanning ? (
-                      <>
-                        <Loader size={20} className="spin" />
-                        Scanning...
-                      </>
-                    ) : (
-                      'Scan Profile'
-                    )}
-                  </button>
-                </div>
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    style={{
-                      marginTop: '16px',
-                      padding: '16px',
-                      borderRadius: '8px',
-                      backgroundColor: isDark ? '#7f1d1d' : '#fee2e2',
-                      color: isDark ? '#fecaca' : '#991b1b',
-                      whiteSpace: 'pre-line',
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '12px',
-                    }}
-                  >
-                    <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div>
-                      <strong>Error:</strong>
-                      <div style={{ marginTop: '4px' }}>{error}</div>
-                    </div>
-                  </motion.div>
-                )}
-
+                {/* Results Display */}
                 <AnimatePresence>
-                  {scanning && (
+                  {result && (
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className={styles.textCenter}
-                      style={{ padding: '40px' }}
+                      style={{ marginTop: '32px' }}
                     >
-                      <Loader size={48} className="spin" style={{ margin: '0 auto', color: selectedPlatform.color }} />
-                      <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: '500' }}>
-                        Fetching profile data from {selectedPlatform.name}...
-                      </p>
-                      <p style={{ fontSize: '14px', opacity: 0.6 }}>This may take a few seconds</p>
-                    </motion.div>
-                  )}
-
-                  {result && !scanning && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {/* Profile Header */}
+                      {/* Profile Preview */}
                       {result.profileData && (
-                        <div className={`${styles.profileHeader} ${isDark ? styles.profileHeaderDark : styles.profileHeaderLight}`}
-                          style={{ marginTop: '24px' }}
+                        <div 
+                          className={`${styles.scanSection} ${isDark ? styles.scanSectionDark : styles.scanSectionLight}`}
+                          style={{ marginBottom: '20px' }}
                         >
-                          {(result.profileData.profile_pic_url || result.profileData.profile_image || result.profileData.profile_pic) && (
-                            <img
-                              src={result.profileData.profile_pic_url || result.profileData.profile_image || result.profileData.profile_pic}
-                              alt="Profile"
-                              className={styles.profileImage}
-                              onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                          )}
-                          <div style={{ flex: 1 }}>
-                            <h4 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {result.profileData.username || result.profileData.name || 'Unknown User'}
-                              {result.profileData.is_verified && (
-                                <Shield size={18} color="#3b82f6" />
-                              )}
-                            </h4>
-                            <p style={{ margin: '0 0 8px 0', opacity: 0.7, fontSize: '14px' }}>
-                              {result.profileData.full_name || result.profileData.biography || result.profileData.bio || result.profileData.about || 'No bio available'}
-                            </p>
-                            <div style={{ display: 'flex', gap: '16px', fontSize: '14px', flexWrap: 'wrap' }}>
-                              <span><strong>{result.profileData.followers || 0}</strong> followers</span>
-                              <span><strong>{result.profileData.following || 0}</strong> following</span>
-                              <span><strong>{result.profileData.posts_count || result.profileData.tweets_count || 0}</strong> posts</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{
+                              width: '80px',
+                              height: '80px',
+                              borderRadius: '50%',
+                              backgroundColor: isDark ? '#4b5563' : '#e2e8f0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '32px',
+                              fontWeight: '700',
+                            }}>
+                              {result.profileData.username?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {result.profileData.username || 'Unknown User'}
+                                {result.profileData.is_verified && (
+                                  <Shield size={18} color="#3b82f6" />
+                                )}
+                              </h4>
+                              <p style={{ margin: '0 0 8px 0', opacity: 0.7, fontSize: '14px' }}>
+                                {result.profileData.biography || 'No bio available'}
+                              </p>
+                              <div style={{ display: 'flex', gap: '16px', fontSize: '14px', flexWrap: 'wrap' }}>
+                                <span><strong>{result.profileData.followers || 0}</strong> followers</span>
+                                <span><strong>{result.profileData.following || 0}</strong> following</span>
+                                <span><strong>{result.profileData.posts_count || 0}</strong> posts</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -618,6 +814,21 @@ function Dashboard({ user, isDark, onLogout, onToggleTheme }) {
                           />
                         </div>
 
+                        {result.riskFactors && result.riskFactors.length > 0 && (
+                          <div style={{ marginTop: '20px' }}>
+                            <h5 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                              {result.isFake ? 'Risk Factors Identified:' : 'Analysis Notes:'}
+                            </h5>
+                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                              {result.riskFactors.map((factor, idx) => (
+                                <li key={idx} style={{ marginBottom: '6px', opacity: 0.9 }}>
+                                  {factor}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
                         <h5 style={{ fontSize: '16px', fontWeight: '600', marginTop: '24px', marginBottom: '16px' }}>
                           Analysis Details
                         </h5>
@@ -627,9 +838,12 @@ function Dashboard({ user, isDark, onLogout, onToggleTheme }) {
                             <>
                               <DetailItem icon={Calendar} label="Account Age" value={result.details.accountAge} isDark={isDark} />
                               <DetailItem icon={Users} label="Follower Ratio" value={result.details.followerRatio} isDark={isDark} />
-                              <DetailItem icon={TrendingUp} label="Bio Sentiment" value={result.details.bioSentiment} isDark={isDark} />
+                              <DetailItem icon={TrendingUp} label="Bio Status" value={result.details.bioSentiment} isDark={isDark} />
                               <DetailItem icon={Activity} label="Profile Picture" value={result.details.profilePicture} isDark={isDark} />
                               <DetailItem icon={Activity} label="Posting Activity" value={result.details.postingActivity} isDark={isDark} />
+                              {result.details.engagementRate && (
+                                <DetailItem icon={TrendingUp} label="Engagement Rate" value={result.details.engagementRate} isDark={isDark} />
+                              )}
                             </>
                           )}
                         </div>
@@ -716,6 +930,61 @@ function Dashboard({ user, isDark, onLogout, onToggleTheme }) {
   );
 }
 
+function InputField({ label, icon: Icon, type = 'text', value, onChange, placeholder, isDark, step }) {
+  return (
+    <div>
+      <label style={{ 
+        display: 'block', 
+        marginBottom: '8px', 
+        fontWeight: '600',
+        fontSize: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}>
+        {Icon && <Icon size={16} />}
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        step={step}
+        className={`${styles.input} ${isDark ? styles.inputDark : styles.inputLight}`}
+      />
+    </div>
+  );
+}
+
+function SelectField({ label, icon: Icon, value, onChange, options, isDark }) {
+  return (
+    <div>
+      <label style={{ 
+        display: 'block', 
+        marginBottom: '8px', 
+        fontWeight: '600',
+        fontSize: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}>
+        {Icon && <Icon size={16} />}
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={onChange}
+        className={`${styles.input} ${isDark ? styles.inputDark : styles.inputLight}`}
+      >
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function DetailItem({ icon: Icon, label, value, isDark }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -732,9 +1001,9 @@ function DetailItem({ icon: Icon, label, value, isDark }) {
         <Icon size={20} />
       </div>
       <div>
-        <p style={{ fontSize: '12px', opacity: 0.6, margin: '0 0 4px 0' }}>{label}</p>
-        <p style={{ fontWeight:'600', margin: 0 }}>{value}</p>
-</div>
-</div>
-);
+         <p style={{ fontSize: '12px', opacity: 0.6, margin: '0 0 4px 0' }}>{label}</p>
+        <p style={{ fontWeight: '600', margin: 0 }}>{value}</p>
+      </div>
+    </div>
+  );
 }
