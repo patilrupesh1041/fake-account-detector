@@ -50,7 +50,5 @@ __pycache__/
 # Machine Learning Models
 *.pkl
 *.h5
-*.joblib
 *.pt
 *.pth
-backend/model/
