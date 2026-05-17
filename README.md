@@ -31,6 +31,7 @@ This project contains a Next.js frontend and a Python backend for detecting fake
 3. Start the backend server:
    ```bash
    cd backend
-   python main.py
+   .\venv\Scripts\activate
+   python -m uvicorn main:app --reload --port 8000
    ```
 *(Enjoy detecting fake accounts!)*
