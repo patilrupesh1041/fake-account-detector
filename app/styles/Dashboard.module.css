@@ -88,6 +88,23 @@
   color: #ffffff;
 }
 
+/* FIX: was missing — used in page.js for Back, Logout, Reset buttons */
+.buttonSecondary {
+  background-color: #e2e8f0;
+  color: #1a202c;
+  width: auto;
+  padding: 10px 20px;
+}
+
+/* FIX: spin animation for the Loader icon */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 .button:hover {
   opacity: 0.9;
   transform: translateY(-2px);
